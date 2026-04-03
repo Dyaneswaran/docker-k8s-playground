@@ -17,8 +17,8 @@ function App() {
         </div>
         <div>
           <h1>Docker + Kubernetes Playground</h1>
-          <p>So far we have buit and manually deployed a docker image</p>
-          <p>Next Step: Auto Deploy using GitHub Actions</p>
+          <p>So far we have buit and auto deployed a docker image using CI/CD</p>
+          <p>Next Step: Kuber?</p>
         </div>
         <button
           className="counter"

@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  push-to-ecr:
+  build-push-deploy:
     runs-on: ubuntu-latest
 
     permissions:
@@ -16,6 +16,7 @@ jobs:
       AWS_REGION: us-east-1
       ECR_REPOSITORY: docker-k8s-playground
       ECR_REGISTRY: 792612172936.dkr.ecr.us-east-1.amazonaws.com
+      IMAGE_TAG: ${{ github.sha }}
 
     steps:
       - name: Checkout code
@@ -34,9 +35,26 @@ jobs:
       - name: Build Docker image
         run: |
           docker build --platform linux/amd64 -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Push Docker images
         run: |
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy on EC2
+        run: |
+          ssh ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} "
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY &&
+            docker pull $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG &&
+            docker stop docker-k8s-playground-container || true &&
+            docker rm docker-k8s-playground-container || true &&
+            docker run -d -p 80:80 --name docker-k8s-playground-container $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          "
