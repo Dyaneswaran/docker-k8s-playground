@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import reactLogo from "./assets/react.svg";
 import viteLogo from "./assets/vite.svg";
 import heroImg from "./assets/hero.png";
@@ -6,6 +6,22 @@ import "./App.css";
 
 function App() {
   const [count, setCount] = useState(0);
+  const [message, setMessage] = useState("Loading...");
+  const [health, setHealth] = useState("Checking...");
+
+  // const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+
+  useEffect(() => {
+    fetch("/api/message")
+      .then((res) => res.json())
+      .then((data) => setMessage(data.message))
+      .catch(() => setMessage("Failed to load backend message"));
+
+    fetch("/api/health")
+      .then((res) => res.json())
+      .then((data) => setHealth(data.status))
+      .catch(() => setHealth("unreachable"));
+  }, []);
 
   return (
     <>
@@ -18,7 +34,10 @@ function App() {
         <div>
           <h1>Docker + Kubernetes Playground</h1>
           <p>
-            So far we have buit and auto deployed a docker image using CI/CD
+            <strong>Backend message:</strong> {message}
+          </p>
+          <p>
+            <strong>Backend health:</strong> {health}
           </p>
           <p>Next Step: K8S?</p>
         </div>

@@ -1,0 +1,69 @@
+name: Build and Deploy Multi-Container App to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    env:
+      AWS_REGION: us-east-1
+      ECR_REGISTRY: 792612172936.dkr.ecr.us-east-1.amazonaws.com
+      FRONTEND_REPOSITORY: docker-k8s-frontend
+      BACKEND_REPOSITORY: docker-k8s-backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build frontend image
+        run: |
+          docker build --platform linux/amd64 -t $ECR_REGISTRY/$FRONTEND_REPOSITORY:latest .
+          docker tag $ECR_REGISTRY/$FRONTEND_REPOSITORY:latest $ECR_REGISTRY/$FRONTEND_REPOSITORY:${{ github.sha }}
+
+      - name: Build backend image
+        run: |
+          docker build --platform linux/amd64 -t $ECR_REGISTRY/$BACKEND_REPOSITORY:latest ./backend
+          docker tag $ECR_REGISTRY/$BACKEND_REPOSITORY:latest $ECR_REGISTRY/$BACKEND_REPOSITORY:${{ github.sha }}
+
+      - name: Push frontend image
+        run: |
+          docker push $ECR_REGISTRY/$FRONTEND_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$FRONTEND_REPOSITORY:${{ github.sha }}
+
+      - name: Push backend image
+        run: |
+          docker push $ECR_REGISTRY/$BACKEND_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$BACKEND_REPOSITORY:${{ github.sha }}
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf "%s" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -T 10 -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy on EC2 with Docker Compose
+        run: |
+          ssh ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
+            cd ~/docker-k8s-playground-deploy &&
+            aws ecr get-login-password --region '"$AWS_REGION"' | docker login --username AWS --password-stdin '"$ECR_REGISTRY"' &&
+            docker compose -f docker-compose.prod.yml pull &&
+            docker compose -f docker-compose.prod.yml up -d
+          '

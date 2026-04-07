@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: docker-k8s-postgres
+    environment:
+      POSTGRES_DB: playgrounddb
+      POSTGRES_USER: playgrounduser
+      POSTGRES_PASSWORD: playgroundpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+    container_name: docker-k8s-backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/playgrounddb
+      SPRING_DATASOURCE_USERNAME: playgrounduser
+      SPRING_DATASOURCE_PASSWORD: playgroundpass
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+  frontend:
+    build:
+      context: .
+    container_name: docker-k8s-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
