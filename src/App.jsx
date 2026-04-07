@@ -39,7 +39,7 @@ function App() {
           <p>
             <strong>Backend health:</strong> {health}
           </p>
-          <p>Next Step: K8S?</p>
+          <p>Next Step: K8S..!</p>
         </div>
         <button
           className="counter"

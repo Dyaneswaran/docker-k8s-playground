@@ -1,9 +1,10 @@
 name: Deploy App to EC2
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    push:
+      branches:
+        - main
 
 jobs:
   build-push-deploy:
